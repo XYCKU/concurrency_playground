@@ -10,19 +10,19 @@
 
 namespace lockfree
 {
-    template <class T, std::size_t Size>
+    template <class T, std::size_t Capacity>
     class SPSCRingBuffer
     {
-        static_assert(math::IsPowerOf2(Size), "Size must be a power of 2");
+        static_assert(math::IsPowerOf2(Capacity), "Size must be a power of 2");
 
     public:
         bool Push(T data)
         {
             auto tail = tail_.load(std::memory_order_relaxed);
-            if (tail - head_cached_ == Size)
+            if (tail - head_cached_ == Capacity)
             {
                 head_cached_ = head_.load(std::memory_order_acquire);
-                if (tail - head_cached_ == Size)
+                if (tail - head_cached_ == Capacity)
                 {
                     return false;
                 }
@@ -53,7 +53,7 @@ namespace lockfree
     private:
         static constexpr std::size_t Index(std::size_t index)
         {
-            return index & (Size - 1);
+            return index & (Capacity - 1);
         }
 
     private:
@@ -61,7 +61,7 @@ namespace lockfree
         alignas(alignment::hardware_destructive_interference_size) std::size_t head_cached_{0};
         alignas(alignment::hardware_destructive_interference_size) std::atomic<std::size_t> tail_{0};
         alignas(alignment::hardware_destructive_interference_size) std::size_t tail_cached_{0};
-        std::vector<T> data_ = std::vector<T>(Size);
+        std::vector<T> data_ = std::vector<T>(Capacity);
     };
 
 }

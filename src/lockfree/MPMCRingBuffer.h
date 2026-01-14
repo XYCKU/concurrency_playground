@@ -9,10 +9,10 @@
 
 namespace lockfree
 {
-    template <class T, std::size_t Size>
+    template <class T, std::size_t Capacity>
     class MPMCRingBuffer
     {
-        static_assert(math::IsPowerOf2(Size), "Size must be a power of 2");
+        static_assert(math::IsPowerOf2(Capacity), "Capacity must be a power of 2");
 
         struct alignas(alignment::hardware_destructive_interference_size) Cell
         {
@@ -27,7 +27,7 @@ namespace lockfree
 
             while (true)
             {
-                if (tail - head_.load(std::memory_order_relaxed) == Size)
+                if (tail - head_.load(std::memory_order_relaxed) == Capacity)
                 {
                     return false;
                 }
@@ -35,7 +35,10 @@ namespace lockfree
                 auto& cell = data_[Index(tail)];
                 if (cell.ready.load(std::memory_order_acquire))
                 {
-                    tail = tail_.load(std::memory_order_relaxed);
+                    if (tail_.compare_exchange_strong(tail, tail + 1, std::memory_order_release, std::memory_order_relaxed))
+                    {
+                        ++tail;
+                    }
                     continue;
                 }
 
@@ -78,13 +81,13 @@ namespace lockfree
     private:
         static constexpr std::size_t Index(std::size_t index)
         {
-            return index & (Size - 1);
+            return index & (Capacity - 1);
         }
 
     private:
         alignas(alignment::hardware_destructive_interference_size) std::atomic<std::size_t> head_{0};
         alignas(alignment::hardware_destructive_interference_size) std::atomic<std::size_t> tail_{0};
-        std::vector<Cell> data_ = std::vector<Cell>(Size);
+        std::vector<Cell> data_ = std::vector<Cell>(Capacity);
     };
 
 }
