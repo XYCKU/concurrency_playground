@@ -65,6 +65,8 @@ static void BM_ConcurrentPushPop(benchmark::State& state) {
                 {
                     if (buffer.Pop())
                     {
+                        using namespace std::chrono_literals;
+                        std::this_thread::sleep_for(1ns);
                         popped.fetch_add(1, std::memory_order_relaxed);
                         benchmark::ClobberMemory();
                     }

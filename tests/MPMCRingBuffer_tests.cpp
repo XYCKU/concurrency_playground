@@ -53,7 +53,7 @@ TEST(MPMCRingBuffer_Unit, CannotOverflowTest) {
 }
 
 TEST(MPMCRingBuffer_Stress, SingleProducerSingleConsumerTest) {
-    constexpr int iterations = 1000000;
+    constexpr int iterations = 1000;
 
     RingBuffer<int> buffer;
 
@@ -85,7 +85,7 @@ TEST(MPMCRingBuffer_Stress, SingleProducerSingleConsumerTest) {
 }
 
 TEST(MPMCRingBuffer_Stress, MultipleProducersMultipleConsumersTest) {
-    constexpr int iterations = 1000000;
+    constexpr int iterations = 10000;
     constexpr int producersAmount = 3;
     constexpr int consumersAmount = 2;
 

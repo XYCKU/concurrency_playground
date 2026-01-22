@@ -3,6 +3,7 @@
 #include <atomic>
 #include <cstddef>
 #include <optional>
+#include <vector>
 
 #include <Alignment.h>
 #include <Math.h>
@@ -12,40 +13,47 @@ namespace lockfree
     template <class T, std::size_t Capacity>
     class MPMCRingBuffer
     {
-        static_assert(math::IsPowerOf2(Capacity), "Capacity must be a power of 2");
+        static_assert(Capacity > 1, "Capacity is too small!");
+        static_assert(math::IsPowerOf2(Capacity), "Capacity must be a power of 2!");
 
-        struct alignas(alignment::hardware_destructive_interference_size) Cell
+        struct Cell
         {
-            T data;
-            std::atomic<bool> ready = false;
+            T data = {};
+            std::atomic<uint64_t> sequence;
         };
 
     public:
+        MPMCRingBuffer()
+        {
+            for (std::size_t i = 0; i < data_.size(); ++i)
+            {
+                data_[i].sequence.store(i, std::memory_order_relaxed);
+            }
+        }
+
         bool Push(T data)
         {
-            auto tail = tail_.load(std::memory_order_relaxed);
-
             while (true)
             {
-                if (tail - head_.load(std::memory_order_relaxed) == Capacity)
+                auto pos = enqueue_pos_.load(std::memory_order_relaxed);
+                auto& cell = data_[Index(pos)];
+                auto sequence = cell.sequence.load(std::memory_order_acquire);
+
+                const auto dif = static_cast<int64_t>(sequence) - static_cast<int64_t>(pos);
+                if (dif < 0)
                 {
                     return false;
                 }
 
-                auto& cell = data_[Index(tail)];
-                if (cell.ready.load(std::memory_order_acquire))
+                if (dif != 0)
                 {
-                    if (tail_.compare_exchange_strong(tail, tail + 1, std::memory_order_release, std::memory_order_relaxed))
-                    {
-                        ++tail;
-                    }
                     continue;
                 }
 
-                if (tail_.compare_exchange_weak(tail, tail + 1, std::memory_order_relaxed, std::memory_order_relaxed))
+                if (enqueue_pos_.compare_exchange_strong(pos, pos + 1, std::memory_order_relaxed))
                 {
                     cell.data = std::move(data);
-                    cell.ready.store(true, std::memory_order_release);
+                    cell.sequence.store(sequence + 1, std::memory_order_release);
                     return true;
                 }
             }
@@ -55,26 +63,27 @@ namespace lockfree
         {
             while (true)
             {
-                auto head = head_.load(std::memory_order_acquire);
-                if (tail_.load(std::memory_order_relaxed) - head == 0)
+                auto pos = dequeue_pos_.load(std::memory_order_relaxed);
+                auto& cell = data_[Index(pos)];
+                auto sequence = cell.sequence.load(std::memory_order_acquire);
+
+                auto dif = static_cast<int64_t>(sequence) - static_cast<int64_t>(pos + 1);
+                if (dif < 0)
                 {
                     return std::nullopt;
                 }
 
-                auto& cell = data_[Index(head)];
-                if (!cell.ready.load(std::memory_order_acquire))
+                if (dif != 0)
                 {
                     continue;
                 }
 
-                if (!head_.compare_exchange_weak(head, head + 1, std::memory_order_release, std::memory_order_relaxed))
+                if (dequeue_pos_.compare_exchange_strong(pos, pos + 1, std::memory_order_relaxed))
                 {
-                    continue;
+                    auto result = std::make_optional(std::move(cell.data));
+                    cell.sequence.store(pos + Capacity, std::memory_order_release);
+                    return result;
                 }
-
-                auto data = std::move(cell.data);
-                cell.ready.store(false, std::memory_order_release);
-                return std::move(data);
             }
         }
 
@@ -85,9 +94,8 @@ namespace lockfree
         }
 
     private:
-        alignas(alignment::hardware_destructive_interference_size) std::atomic<std::size_t> head_{0};
-        alignas(alignment::hardware_destructive_interference_size) std::atomic<std::size_t> tail_{0};
+        alignas(alignment::hardware_destructive_interference_size) std::atomic<std::size_t> dequeue_pos_{0};
+        alignas(alignment::hardware_destructive_interference_size) std::atomic<std::size_t> enqueue_pos_{0};
         std::vector<Cell> data_ = std::vector<Cell>(Capacity);
     };
-
 }

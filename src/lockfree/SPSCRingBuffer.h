@@ -2,8 +2,8 @@
 
 #include <atomic>
 #include <cstddef>
-#include <new>
 #include <optional>
+#include <vector>
 
 #include <Alignment.h>
 #include <Math.h>

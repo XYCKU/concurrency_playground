@@ -13,50 +13,67 @@
       }
     },
     {
-      "name": "x64-debug",
-      "displayName": "x64 Debug",
-      "inherits": "base",
+      "name": "debug",
+      "inherits": [ "base" ],
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "release",
+      "inherits": [ "base" ],
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "x64",
+      "hidden": true,
       "architecture": {
         "value": "x64",
         "strategy": "external"
-      },
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug"
       }
     },
     {
-      "name": "x64-release",
-      "displayName": "x64 Release",
-      "inherits": "x64-debug",
+      "name": "x64-debug",
+      "inherits": [ "debug", "x64" ]
+    },
+    {
+      "name": "asan",
+      "hidden": true,
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
+        "ENABLE_ASAN": "ON"
       }
     },
     {
-      "name": "x86-debug",
-      "displayName": "x86 Debug",
-      "inherits": "base",
-      "architecture": {
-        "value": "x86",
-        "strategy": "external"
-      },
+      "name": "tsan",
+      "hidden": true,
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug"
+        "ENABLE_TSAN": "ON"
       }
     },
     {
-      "name": "x86-release",
-      "displayName": "x86 Release",
-      "inherits": "x86-debug",
+      "name": "ubsan",
+      "hidden": true,
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
+        "ENABLE_UBSAN": "ON"
       }
+    },
+    {
+      "name": "x64-debug-tsan",
+      "inherits": [ "x64-debug", "tsan" ]
     }
   ],
   "buildPresets": [
     {
       "name": "x64-debug",
-      "configurePreset": "x64-debug"
+      "configurePreset": "debug"
+    },
+    {
+      "name": "test-tsan",
+      "configurePreset": "x64-debug-tsan"
     }
   ]
 }
